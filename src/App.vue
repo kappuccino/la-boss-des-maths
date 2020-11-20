@@ -1,33 +1,62 @@
 <template>
   <div id="app" :class="{started}">
 
+    <button @click="start" id="roll" class="btn">
+      <Sync />
+    </button>
+
+    <button @click="changeMode" id="mode" class="btn">
+      <Plus v-if="mode === 'plus'" />
+      <Minus v-if="mode === 'minus'" />
+      <Times v-if="mode === 'multi'" />
+    </button>
+
     <section>
       <div class="grid" v-if="started && progress < 100">
-        <div>{{a}}</div>
-        <div>x</div>
-        <div>{{b}}</div>
+        <div class="top">{{a}}</div>
+        <div class="top">{{sign}}</div>
+        <div class="top">{{b}}</div>
+
+        <div class="full center">=</div>
+
+        <div class="full bottom">
+          <input v-model="res">
+        </div>
       </div>
 
       <div class="win" v-if="started && progress === 100">
-        <img :src="gif()" />
+        <img :src="gif()" alt="Victoire !" />
       </div>
     </section>
 
-    <div class="progress" v-if="started">
+    <div class="progress" v-if="progress < 100">
       <div :style="`width:${progress}%`"/>
     </div>
-
-    <button @click="start" id="roll">Lancer</button>
 
   </div>
 </template>
 
+<style src="./style.scss" lang="scss" />
+
 <script>
+import Sync from './icon/sync-alt-duotone.svg'
+import Plus from './icon/plus-solid.svg'
+import Minus from './icon/minus-solid.svg'
+import Times from './icon/times-solid.svg'
+
 export default {
   name: 'App',
 
+  components:{
+    Sync,
+    Plus,
+    Minus,
+    Times
+  },
+
   mounted(){
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    this.start()
+    /*const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     // new speech recognition object
     this.recognition = new SpeechRecognition()
@@ -40,25 +69,56 @@ export default {
     }
 
     this.recognition.onresult = this.onResult
-    this.recognition.start()
+    this.recognition.start()*/
   },
 
   data: () => ({
     started: false,
-    score: 3,
+    score: 0,
     max: 5,
     a: 1,
-    b: 1
+    b: 1,
+    mode: window.localStorage.getItem('mode') || 'plus',
+    res: ''
   }),
 
   computed:{
     solution(){
-      return this.a * this.b
+      if(this.mode === 'minus') return this.a - this.b
+      if(this.mode === 'multi') return this.a * this.b
+      return this.a + this.b
+    },
+
+    sign(){
+      if(this.mode === 'minus') return '-'
+      if(this.mode === 'multi') return 'x'
+      return '+'
     },
 
     progress(){
       return Math.round((this.score / this.max) * 100)
     },
+  },
+
+  watch:{
+    res(next){
+      let result = parseInt(next, 10)
+      const good = this.solution === result
+
+      if(!good) return
+
+      this.goodSound()
+      this.updateScore(1)
+
+      setTimeout(() => {
+        this.res = ''
+        this.roll()
+      }, 500)
+    },
+
+    mode(next){
+      window.localStorage.setItem('mode', next)
+    }
   },
 
   methods: {
@@ -68,16 +128,34 @@ export default {
       this.roll()
     },
 
+    changeMode(){
+      if(this.mode === 'plus'){
+        this.mode = 'minus'
+      }else
+      if(this.mode === 'minus'){
+        this.mode = 'multi'
+      }else{
+        this.mode = 'plus'
+      }
+
+      this.start()
+    },
+
     roll: function(){
-      this.a = this.random(1, 10)
-      this.b = this.random(1, 10)
+      let a = this.random(1, 10)
+      let b = this.random(1, 10)
+
+      if(this.mode === 'minus' && a < b) [a, b] = [b, a]
+
+      this.a = a
+      this.b = b
     },
 
     random(min, max){
       return Math.round(min + Math.random() * (max - min))
     },
 
-    onResult(event){
+    /*onResult(event){
       let transcript = event.results[event.results.length-1][0].transcript
 
       let result = parseInt(transcript, 10)
@@ -91,7 +169,7 @@ export default {
       }else{
         this.badSound()
       }
-    },
+    },*/
 
     updateScore(next){
       this.score = this.score + next < 0 ? 0 : this.score + next
@@ -129,7 +207,6 @@ export default {
         'https://media.giphy.com/media/3xz2BCohVTd7h2Kvfi/source.gif',
         'https://media.giphy.com/media/TmVqs1EEKnFjq/source.gif',
         'https://media.giphy.com/media/TmVqs1EEKnFjq/source.gif',
-        'https://media.giphy.com/media/TmVqs1EEKnFjq/source.gif',
         'https://media.giphy.com/media/26xBENWdka2DSvvag/source.gif',
         'https://media.giphy.com/media/mPIA4KZVXv0ty/source.gif',
         'https://giphy.com/gifs/sandiegozoo-reaction-happy-lol-3bzBb1sBpPpgXKdLrs',
@@ -152,66 +229,3 @@ export default {
   }
 }
 </script>
-
-
-<style lang="scss">
-// #0C0636,#095169,#059B9A,#53BA83,#9FD86B,#0C0636,#095169,#059B9A
-body{
-  margin: 0;
-  font-family: 'Roboto', sans-serif;
-}
-
-#app{
-  background: aqua;
-
-  &.started{
-    section{
-      height: calc(100vh - 50px);
-    }
-  }
-}
-
-#roll{
-  position: absolute;
-  top: 5px;
-  left: 5px;
-}
-
-section{
-  height: 100vh;
-  background: #0C0636;
-  font-size: 12rem;
-  text-align: center;
-  color: #9FD86B;
-}
-
-.grid{
-  height: 100%;
-  display: grid;
-  grid-template-columns: 2fr 1fr 2fr;
-  text-align: center;
-  align-items: center;
-}
-
-.progress{
-  background: #059B9A;
-
-  div{
-    transition: all 350ms;
-    background: #095169;
-    height: 50px;
-  }
-}
-
-.win{
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-
-  img{
-    max-height: 25vh;
-  }
-}
-
-</style>
